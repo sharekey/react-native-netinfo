@@ -76,6 +76,16 @@ export default class InternetReachability {
     }
   };
 
+  // Keeps the handler of a check started by the timer, so that a new network
+  // state or tearDown can cancel it.
+  private _scheduleCheck = (delay: number): void => {
+    this._currentTimeoutHandle = setTimeout((): void => {
+      this._currentTimeoutHandle = null;
+      this._currentInternetReachabilityCheckHandler =
+        this._checkInternetReachability();
+    }, delay);
+  };
+
   private _checkInternetReachability = (): InternetReachabilityCheckHandler => {
     const controller = new AbortController();
     const startedAt = Date.now();
@@ -129,10 +139,7 @@ export default class InternetReachability {
         const nextTimeoutInterval = this._isInternetReachable
           ? this._configuration.reachabilityLongTimeout
           : this._configuration.reachabilityShortTimeout;
-        this._currentTimeoutHandle = setTimeout(
-          this._checkInternetReachability,
-          nextTimeoutInterval,
-        );
+        this._scheduleCheck(nextTimeoutInterval);
       })
       .catch((error: Error | 'timedout' | 'canceled'): void => {
         if ('canceled' === error) {
@@ -145,10 +152,7 @@ export default class InternetReachability {
           }
 
           this._setIsInternetReachable(false);
-          this._currentTimeoutHandle = setTimeout(
-            this._checkInternetReachability,
-            this._configuration.reachabilityShortTimeout,
-          );
+          this._scheduleCheck(this._configuration.reachabilityShortTimeout);
         }
       })
       // Clear request timeout and propagate any errors

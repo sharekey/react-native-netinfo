@@ -171,4 +171,37 @@ describe('InternetReachability', () => {
       },
     );
   });
+
+  describe('a check started by the timer', () => {
+    it('is cancelled by a new network state', async () => {
+      await startPeriodicCheck();
+
+      reachability.update(connectedState);
+      await flush();
+
+      expect(probes).toHaveLength(3);
+      expect(probes[1].signal.aborted).toBe(true);
+      probes[1].resolve(204);
+      probes[2].resolve(204);
+      await flush();
+      await jest.advanceTimersByTimeAsync(
+        configuration.reachabilityLongTimeout,
+      );
+      expect(probes).toHaveLength(4);
+    });
+
+    it('is cancelled by tearDown', async () => {
+      await startPeriodicCheck();
+
+      reachability.tearDown();
+      await flush();
+
+      expect(probes[1].signal.aborted).toBe(true);
+      await jest.advanceTimersByTimeAsync(
+        configuration.reachabilityRequestTimeout +
+          configuration.reachabilityLongTimeout,
+      );
+      expect(probes).toHaveLength(2);
+    });
+  });
 });
